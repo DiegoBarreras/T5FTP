@@ -4,8 +4,6 @@ $FtpRoot = "C:\inetpub\ftproot"
 $FtpSite = "FTPPro"
 $FtpPort = 21
 
-$grupoTodos = "Todos"
-
 if ($args.Count -eq 0) {
     Write-Host "`n"
     Write-Host "---------------------------------------------"
@@ -106,7 +104,6 @@ switch ($args[0]) {
         Import-Module WebAdministration -Force
 
         Write-Host "Creando sitio FTP en IIS...`n"
-        
         & "$env:SystemRoot\system32\inetsrv\appcmd.exe" delete site $FtpSite 2>$null
 
         try {
@@ -156,16 +153,16 @@ switch ($args[0]) {
             $usuario = Read-Host "Nombre de usuario"
 
             while ($true) {
-                $contrasena = Read-Host "Contraseña (min 8 chars, mayuscula, numero, simbolo)" -AsSecureString
-                $confirmacion = Read-Host "Confirma la contraseña" -AsSecureString
+                $contrasena = Read-Host "Contrasena (min 8 chars, mayuscula, numero, simbolo)" -AsSecureString
+                $confirmacion = Read-Host "Confirma la contrasena" -AsSecureString
 
                 $plain1 = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
                     [Runtime.InteropServices.Marshal]::SecureStringToBSTR($contrasena))
                 $plain2 = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
                     [Runtime.InteropServices.Marshal]::SecureStringToBSTR($confirmacion))
 
-                if ($plain1 -ne $plain2) { Write-Host "Error: Las contraseñas no coinciden. Intenta de nuevo."; continue }
-                if ($plain1.Length -lt 8) { Write-Host "Error: La contraseña debe tener al menos 8 caracteres."; continue }
+                if ($plain1 -ne $plain2) { Write-Host "Error: Las contrasenas no coinciden. Intenta de nuevo."; continue }
+                if ($plain1.Length -lt 8) { Write-Host "Error: La contrasena debe tener al menos 8 caracteres."; continue }
                 break
             }
 
@@ -184,7 +181,7 @@ switch ($args[0]) {
             }
             catch {
                 Write-Host "Error al crear usuario: $_" -ForegroundColor Red
-                Write-Host "Verifica que la contraseña cumpla las normas de Windows Server." -ForegroundColor Yellow
+                Write-Host "Verifica que la contrasena cumpla la politica de Windows Server." -ForegroundColor Yellow
                 continue
             }
 
@@ -201,10 +198,11 @@ switch ($args[0]) {
                 cmd /c mklink /J "$homeBase\$grupo" "$FtpRoot\$grupo" | Out-Null
             }
             if (-not (Test-Path "$homeBase\$usuario")) {
-                cmd /c mklink /J "$homeBase\$usuario" $homeBase | Out-Null
+                New-Item -ItemType Directory -Force -Path "$homeBase\$usuario" | Out-Null
             }
 
             $cuenta = "$env:COMPUTERNAME\$usuario"
+
             foreach ($carpeta in @("$FtpRoot\general", "$FtpRoot\$grupo")) {
                 $acl = Get-Acl $carpeta
                 $regla = New-Object System.Security.AccessControl.FileSystemAccessRule(
@@ -221,6 +219,14 @@ switch ($args[0]) {
             $aclHome.SetOwner([System.Security.Principal.NTAccount]$cuenta)
             $aclHome.AddAccessRule($reglaHome)
             Set-Acl $homeBase $aclHome
+
+            $aclPersonal = Get-Acl "$homeBase\$usuario"
+            $reglaPersonal = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                $cuenta, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
+            )
+            $aclPersonal.SetOwner([System.Security.Principal.NTAccount]$cuenta)
+            $aclPersonal.AddAccessRule($reglaPersonal)
+            Set-Acl "$homeBase\$usuario" $aclPersonal
 
             Write-Host "Usuario $usuario configurado con exito."
         }
