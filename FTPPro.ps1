@@ -24,17 +24,17 @@ if ($args.Count -eq 0) {
 switch ($args[0]) {
 
     "--verificarinst" {
-        Get-Paquete "Web-FTP-Server"
-        Get-Paquete "Web-Server"
-        Get-Paquete "Web-Mgmt-Console"
+        Verificar-Paquete "Web-FTP-Server"
+        Verificar-Paquete "Web-Server"
+        Verificar-Paquete "Web-Mgmt-Console"
         break
     }
 
     "--instalar" {
         Write-Host "Re/Instalacion de Paquetes:`n"
-        Set-Paquete "Web-FTP-Server"
-        Set-Paquete "Web-Server"
-        Set-Paquete "Web-Mgmt-Console"
+        Instalar-Paquete "Web-FTP-Server"
+        Instalar-Paquete "Web-Server"
+        Instalar-Paquete "Web-Mgmt-Console"
 
         Write-Host "Creando grupos locales...`n"
         foreach ($grupo in @("reprobados", "recursadores")) {
@@ -108,6 +108,7 @@ switch ($args[0]) {
 
         try {
             New-WebFtpSite -Name $FtpSite -Port $FtpPort -PhysicalPath $FtpRoot -Force | Out-Null
+            Set-ItemProperty "IIS:\Sites\$FtpSite" -Name physicalPath -Value $FtpRoot
             Write-Host "Sitio FTP creado correctamente."
         }
         catch {
@@ -120,6 +121,10 @@ switch ($args[0]) {
             -Name ftpServer.security.authentication.anonymousAuthentication.enabled -Value $true
         Set-ItemProperty "IIS:\Sites\$FtpSite" `
             -Name ftpServer.security.authentication.basicAuthentication.enabled -Value $true
+
+        # Cambiar la política de SSL a 'No requerido'
+        Set-ItemProperty "IIS:\Sites\$FtpSite" -Name ftpServer.security.ssl.controlChannelPolicy -Value "SslAllow"
+        Set-ItemProperty "IIS:\Sites\$FtpSite" -Name ftpServer.security.ssl.dataChannelPolicy -Value "SslAllow"
 
         Add-WebConfiguration "/system.ftpServer/security/authorization" `
             -Value @{accessType = "Allow"; users = "*"; permissions = "Read" } `
